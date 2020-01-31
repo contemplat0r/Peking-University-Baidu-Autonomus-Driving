@@ -76,15 +76,21 @@ class MinimalUniversalDataset(Dataset):
     def __getitem__(self, idx):
         class_label, path_to_image_file = self.files_label_map[idx]
         image = torch.from_numpy(img_io.imread(path_to_image_file))
-        if self.resize_sizes:
-            image = resize(image, self.resize_sizes)
+        if self.img_resize_sizes:
+            image = resize(image, self.img_resize_sizes)
         #print("__getitem__, image.shape: ", image.shape)
         torch_tensor = torch.from_numpy(image)
         #return image, label
         return (torch_tensor.T).permute([0, 2, 1]), class_label
 
+def make_loaders(
+        files_label_map,
+        train_test_split_ratio=0.2,
+        train_valid_split_ratio=0.4,
+        batch_sizes=(4, 4, 4),
+        img_resize_sizes=(64, 64)
+    ):
 
-def make_loaders(files_label_map, train_test_split_ratio=0.2, train_valid_split_ratio=0.4, batch_sizes=(4, 4, 4)):
     master_dataset_len = len(files_label_map)
     test_subset_len = int(master_dataset_len * train_test_split_ratio)
     train_subset_len = master_dataset_len - test_subset_len
@@ -93,9 +99,9 @@ def make_loaders(files_label_map, train_test_split_ratio=0.2, train_valid_split_
 
     train_fl_map, valid_fl_map, test_fl_map = random_split(files_label_map, [train_subset_len, valid_subset_len, test_subset_len])
 
-    train_ds = MinimalUniversalDataset(train_fl_map)
-    valid_ds = MinimalUniversalDataset(valid_fl_map)
-    test_ds = MinimalUniversalDataset(test_fl_map)
+    train_ds = MinimalUniversalDataset(train_fl_map, img_resize_sizes=(64, 64))
+    valid_ds = MinimalUniversalDataset(valid_fl_map, img_resize_sizes=(64, 64))
+    test_ds = MinimalUniversalDataset(test_fl_map, img_resize_sizes=(64, 64))
 
     train_loader_params = {'batch_size': batch_sizes[0], 'shuffle': True}
     valid_loader_params = {'batch_size': batch_sizes[1], 'shuffle': True}
@@ -106,32 +112,6 @@ def make_loaders(files_label_map, train_test_split_ratio=0.2, train_valid_split_
     test_loader = data.DataLoader(test_ds, **test_loader_params)
 
 
-    '''
-    validation_subset_size = valid_train_ratio * (1 - valid_train_ratio)
-
-    indices = list(range(dataset_size))
-    validation_indices = np.random.choice(indices, size=validation_subset_size, replace=False)
-    train_indices = list(set(indices) - set(validation_indices))
-
-    train_sampler = SubsetRandomSampler(train_indices)
-    validation_sampler = SubsetRandomSampler(validation_indices)
-    
-    dataset_sizes = {
-            'train': len(train_indices),
-            'validation': len(validation_indices)
-        }
-
-    train_loader = data.DataLoader(dataset, batch_size=BATCH_SIZE, num_workers=1, sampler=train_sampler)
-    validation_loader = data.DataLoader(dataset, batch_size=BATCH_SIZE, num_workers=1, sampler=validation_sampler)
-
-    loaders = {
-            'train': train_loader,
-            'validation': validation_loader
-        }
-
-    return loaders, dataset_sizes
-    '''
-    #return train_ds, valid_ds, test_ds
     return train_loader, valid_loader, test_loader
 
 
@@ -215,7 +195,10 @@ if __name__ == '__main__':
     files_label_map = get_files_label_map(dataset_info)
     print(get_files_label_map(dataset_info)[2000:2020])
     #print(type(make_loaders(files_label_map)))
-    train, valid, test = make_loaders(files_label_map)
+    train_dl, valid_dl, test_dl = make_loaders(files_label_map)
+    print(type(train_dl), type(valid_dl), type(test_dl))
+    img, label = next(iter(train_dl))
+    print(img.shape, label)
 
     '''
     print("len(train), len(valid), len(test):", len(train), len(valid), len(test))

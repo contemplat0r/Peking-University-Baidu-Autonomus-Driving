@@ -67,8 +67,9 @@ class MinimalUniversalDataset(Dataset):
         self.files_label_map = files_label_map
         self.dataset_len = len(files_label_map)
         self.img_resize_sizes = img_resize_sizes
-        if transforms:
-            self.transforms = transforms
+        self.transforms = transforms
+        #if self.transforms:
+        #    self.transforms = transforms()
 
     def __len__(self):
         return self.dataset_len
@@ -79,6 +80,12 @@ class MinimalUniversalDataset(Dataset):
         if self.img_resize_sizes:
             image = resize(image, self.img_resize_sizes)
         #print("__getitem__, image.shape: ", image.shape)
+        #print("__getitem__, self.transforms: ", self.transforms)
+        if self.transforms:
+            #aug = self.transforms()
+            #print("aug: ", aug)
+            image = self.transforms(image=image)['image']
+            #image = aug(image)
         torch_tensor = torch.from_numpy(image)
         #return image, label
         return (torch_tensor.T).permute([0, 2, 1]), class_label
@@ -88,7 +95,8 @@ def make_loaders(
         train_test_split_ratio=0.2,
         train_valid_split_ratio=0.4,
         batch_sizes=(4, 4, 4),
-        img_resize_sizes=(64, 64)
+        img_resize_sizes=(64, 64),
+        transforms=(None, None, None)
     ):
 
     master_dataset_len = len(files_label_map)
@@ -99,9 +107,9 @@ def make_loaders(
 
     train_fl_map, valid_fl_map, test_fl_map = random_split(files_label_map, [train_subset_len, valid_subset_len, test_subset_len])
 
-    train_ds = MinimalUniversalDataset(train_fl_map, img_resize_sizes=(64, 64))
-    valid_ds = MinimalUniversalDataset(valid_fl_map, img_resize_sizes=(64, 64))
-    test_ds = MinimalUniversalDataset(test_fl_map, img_resize_sizes=(64, 64))
+    train_ds = MinimalUniversalDataset(train_fl_map, img_resize_sizes=img_resize_sizes, transforms=transforms[0])
+    valid_ds = MinimalUniversalDataset(valid_fl_map, img_resize_sizes=img_resize_sizes, transforms=transforms[1])
+    test_ds = MinimalUniversalDataset(test_fl_map, img_resize_sizes=img_resize_sizes, transforms=transforms[2])
 
     train_loader_params = {'batch_size': batch_sizes[0], 'shuffle': True}
     valid_loader_params = {'batch_size': batch_sizes[1], 'shuffle': True}
@@ -112,7 +120,7 @@ def make_loaders(
     test_loader = data.DataLoader(test_ds, **test_loader_params)
 
 
-    return train_loader, valid_loader, test_loader
+    return train_loader, valid_loader, test_loader, (train_fl_map, valid_fl_map, test_fl_map)
 
 
 class NaturalImagesDataset(Dataset):
